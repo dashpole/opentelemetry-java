@@ -18,6 +18,7 @@ import io.opentelemetry.sdk.common.export.Compressor;
 import io.opentelemetry.sdk.common.export.GrpcSender;
 import io.opentelemetry.sdk.common.export.GrpcSenderProvider;
 import io.opentelemetry.sdk.common.export.RetryPolicy;
+import io.opentelemetry.sdk.common.export.internal.Authenticator;
 import io.opentelemetry.sdk.common.internal.ComponentId;
 import io.opentelemetry.sdk.common.internal.StandardComponentId;
 import java.net.URI;
@@ -26,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.StringJoiner;
@@ -60,6 +62,7 @@ public class GrpcExporterBuilder {
   @Nullable private Compressor compressor;
   private final Map<String, String> constantHeaders = new HashMap<>();
   private Supplier<Map<String, String>> headerSupplier = Collections::emptyMap;
+  @Nullable private Authenticator authenticator;
   private TlsConfigHelper tlsConfigHelper = new TlsConfigHelper();
   @Nullable private RetryPolicy retryPolicy = RetryPolicy.getDefault();
   private Supplier<MeterProvider> meterProviderSupplier =
@@ -147,6 +150,11 @@ public class GrpcExporterBuilder {
     return this;
   }
 
+  public GrpcExporterBuilder setAuthenticator(@Nullable Authenticator authenticator) {
+    this.authenticator = authenticator;
+    return this;
+  }
+
   public GrpcExporterBuilder setRetryPolicy(@Nullable RetryPolicy retryPolicy) {
     this.retryPolicy = retryPolicy;
     return this;
@@ -194,6 +202,7 @@ public class GrpcExporterBuilder {
     copy.compressor = compressor;
     copy.constantHeaders.putAll(constantHeaders);
     copy.headerSupplier = headerSupplier;
+    copy.authenticator = authenticator;
     copy.tlsConfigHelper = tlsConfigHelper.copy();
     if (retryPolicy != null) {
       copy.retryPolicy = retryPolicy.toBuilder().build();
@@ -208,6 +217,7 @@ public class GrpcExporterBuilder {
   }
 
   public GrpcExporter build() {
+    Authenticator finalAuthenticator = this.authenticator;
     Supplier<Map<String, List<String>>> headerSupplier =
         () -> {
           Map<String, List<String>> result = new HashMap<>();
@@ -226,6 +236,9 @@ public class GrpcExporterBuilder {
                         merged.addAll(v2);
                         return merged;
                       }));
+          if (finalAuthenticator != null) {
+            mergeGrpcAuthenticatorHeaders(result, finalAuthenticator.getHeaders());
+          }
           return result;
         };
 
@@ -257,7 +270,25 @@ public class GrpcExporterBuilder {
         ComponentId.generateLazy(exporterType),
         meterProviderSupplier,
         endpoint,
-        maxRequestMessageSize);
+        maxRequestMessageSize,
+        authenticator);
+  }
+
+  private static void mergeGrpcAuthenticatorHeaders(
+      Map<String, List<String>> result, @Nullable Map<String, String> authHeaders) {
+    if (authHeaders == null || authHeaders.isEmpty()) {
+      return;
+    }
+    for (Map.Entry<String, String> authEntry : authHeaders.entrySet()) {
+      String authKey = authEntry.getKey();
+      String authValue = authEntry.getValue();
+      if (authKey == null || authValue == null) {
+        continue;
+      }
+      String normalizedKey = authKey.toLowerCase(Locale.ROOT);
+      result.keySet().removeIf(existingKey -> existingKey.equalsIgnoreCase(normalizedKey));
+      result.put(normalizedKey, Collections.singletonList(authValue));
+    }
   }
 
   public String toString(boolean includePrefixAndSuffix) {
@@ -293,6 +324,9 @@ public class GrpcExporterBuilder {
       joiner.add("executorService=" + executorService);
     }
     joiner.add("maxRequestMessageSize=" + maxRequestMessageSize);
+    if (authenticator != null) {
+      joiner.add("authenticator=" + authenticator);
+    }
     joiner.add("exporterType=" + exporterType.toString());
     joiner.add("internalTelemetrySchemaVersion=" + internalTelemetryVersion);
     // Note: omit tlsConfigHelper because we can't log the configuration in any readable way

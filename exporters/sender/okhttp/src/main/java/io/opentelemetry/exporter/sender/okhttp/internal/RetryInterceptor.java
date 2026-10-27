@@ -118,6 +118,9 @@ public final class RetryInterceptor implements Interceptor {
           throw new NullPointerException("response cannot be null.");
         }
       } catch (IOException e) {
+        if (e instanceof OkHttpHttpSender.HeaderSupplierException) {
+          throw e;
+        }
         exception = e;
         response = null;
         boolean retryable = retryState.shouldRetryOnException(exception);

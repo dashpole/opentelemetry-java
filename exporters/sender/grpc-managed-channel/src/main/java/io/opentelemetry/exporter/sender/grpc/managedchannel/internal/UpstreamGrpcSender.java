@@ -8,9 +8,8 @@ package io.opentelemetry.exporter.sender.grpc.managedchannel.internal;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
+import io.grpc.CallCredentials;
 import io.grpc.CallOptions;
-import io.grpc.Channel;
-import io.grpc.ClientInterceptors;
 import io.grpc.Compressor;
 import io.grpc.CompressorRegistry;
 import io.grpc.ManagedChannel;
@@ -20,7 +19,7 @@ import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.ClientCalls;
-import io.grpc.stub.MetadataUtils;
+import io.opentelemetry.api.impl.InstrumentationUtil;
 import io.opentelemetry.exporter.internal.grpc.MarshalerInputStream;
 import io.opentelemetry.sdk.common.CompletableResultCode;
 import io.opentelemetry.sdk.common.export.GrpcResponse;
@@ -33,10 +32,13 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -161,33 +163,67 @@ public final class UpstreamGrpcSender implements GrpcSender {
   public void send(
       MessageWriter messageWriter, Consumer<GrpcResponse> onResponse, Consumer<Throwable> onError) {
     CallOptions requestCallOptions = CallOptions.DEFAULT;
-    Channel requestChannel = channel;
     if (timeout.toNanos() > 0) {
       requestCallOptions = requestCallOptions.withDeadlineAfter(timeout);
     }
-    Metadata metadata = new Metadata();
-    Map<String, List<String>> headers = headersSupplier.get();
-    if (headers != null) {
-      for (Map.Entry<String, List<String>> entry : headers.entrySet()) {
-        metadata.put(
-            Metadata.Key.of(entry.getKey(), Metadata.ASCII_STRING_MARSHALLER),
-            String.join(",", entry.getValue()));
+    Map<String, List<String>> initialHeaders;
+    try {
+      initialHeaders = invokeHeadersSupplier();
+    } catch (RuntimeException e) {
+      onError.accept(e);
+      return;
+    }
+    if (initialHeaders != null) {
+      for (Map.Entry<String, List<String>> entry : initialHeaders.entrySet()) {
         // Header names are case-insensitive, so "Host" must override the authority too.
         if (entry.getKey().equalsIgnoreCase("host") && !entry.getValue().isEmpty()) {
           requestCallOptions = requestCallOptions.withAuthority(entry.getValue().get(0));
         }
       }
-      requestChannel =
-          ClientInterceptors.intercept(
-              requestChannel, MetadataUtils.newAttachHeadersInterceptor(metadata));
     }
+    AtomicBoolean firstAttempt = new AtomicBoolean(true);
+    AtomicReference<RuntimeException> retryHeaderError = new AtomicReference<>();
+    requestCallOptions =
+        requestCallOptions.withCallCredentials(
+            new CallCredentials() {
+              @Override
+              public void applyRequestMetadata(
+                  RequestInfo requestInfo, Executor appExecutor, MetadataApplier applier) {
+                Map<String, List<String>> attemptHeaders;
+                if (firstAttempt.compareAndSet(true, false)) {
+                  attemptHeaders = initialHeaders;
+                } else {
+                  try {
+                    attemptHeaders = invokeHeadersSupplier();
+                  } catch (RuntimeException e) {
+                    retryHeaderError.set(e);
+                    applier.fail(
+                        Status.UNAUTHENTICATED
+                            .withDescription("Failed to get headers for retry")
+                            .withCause(e));
+                    return;
+                  }
+                }
+                Metadata metadata = new Metadata();
+                if (attemptHeaders != null) {
+                  for (Map.Entry<String, List<String>> entry : attemptHeaders.entrySet()) {
+                    metadata.put(
+                        Metadata.Key.of(
+                            entry.getKey().toLowerCase(Locale.ROOT),
+                            Metadata.ASCII_STRING_MARSHALLER),
+                        String.join(",", entry.getValue()));
+                  }
+                }
+                applier.apply(metadata);
+              }
+            });
     if (this.compressorName != null) {
       requestCallOptions = requestCallOptions.withCompression(compressorName);
     }
 
     Futures.addCallback(
         ClientCalls.futureUnaryCall(
-            requestChannel.newCall(methodDescriptor, requestCallOptions), messageWriter),
+            channel.newCall(methodDescriptor, requestCallOptions), messageWriter),
         new FutureCallback<byte[]>() {
           @Override
           public void onSuccess(@Nullable byte[] result) {
@@ -200,6 +236,11 @@ public final class UpstreamGrpcSender implements GrpcSender {
 
           @Override
           public void onFailure(Throwable t) {
+            RuntimeException headerError = retryHeaderError.get();
+            if (headerError != null) {
+              onError.accept(headerError);
+              return;
+            }
             Status status = fromThrowable(t);
             if (status == null) {
               onError.accept(t);
@@ -213,6 +254,13 @@ public final class UpstreamGrpcSender implements GrpcSender {
           }
         },
         executor);
+  }
+
+  @Nullable
+  private Map<String, List<String>> invokeHeadersSupplier() {
+    AtomicReference<Map<String, List<String>>> result = new AtomicReference<>();
+    InstrumentationUtil.suppressInstrumentation(() -> result.set(headersSupplier.get()));
+    return result.get();
   }
 
   /**

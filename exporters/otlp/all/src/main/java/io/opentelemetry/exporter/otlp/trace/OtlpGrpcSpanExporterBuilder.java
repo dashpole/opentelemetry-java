@@ -18,6 +18,7 @@ import io.opentelemetry.sdk.common.InternalTelemetryVersion;
 import io.opentelemetry.sdk.common.export.Compressor;
 import io.opentelemetry.sdk.common.export.MemoryMode;
 import io.opentelemetry.sdk.common.export.RetryPolicy;
+import io.opentelemetry.sdk.common.export.internal.Authenticator;
 import io.opentelemetry.sdk.common.internal.StandardComponentId;
 import java.net.URI;
 import java.time.Duration;
@@ -212,6 +213,18 @@ public final class OtlpGrpcSpanExporterBuilder {
    */
   public OtlpGrpcSpanExporterBuilder setHeaders(Supplier<Map<String, String>> headerSupplier) {
     delegate.setHeadersSupplier(headerSupplier);
+    return this;
+  }
+
+  /**
+   * Set the {@link Authenticator} to provide per-request authentication headers. If a header key
+   * returned by the authenticator collides (case-insensitively) with a constant header from {@link
+   * #addHeader(String, String)} or a header from {@link #setHeaders(Supplier)}, the authenticator
+   * header takes precedence.
+   */
+  OtlpGrpcSpanExporterBuilder setAuthenticator(Authenticator authenticator) {
+    requireNonNull(authenticator, "authenticator");
+    delegate.setAuthenticator(authenticator);
     return this;
   }
 

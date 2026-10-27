@@ -17,16 +17,19 @@ import io.opentelemetry.common.ComponentLoader;
 import io.opentelemetry.exporter.internal.IncubatingExporterBuilderUtil;
 import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
 import io.opentelemetry.sdk.autoconfigure.spi.ConfigurationException;
+import io.opentelemetry.sdk.autoconfigure.spi.internal.ComponentProvider;
 import io.opentelemetry.sdk.autoconfigure.spi.internal.DefaultConfigProperties;
 import io.opentelemetry.sdk.autoconfigure.spi.internal.ExtendedDeclarativeConfigProperties;
 import io.opentelemetry.sdk.common.InternalTelemetryVersion;
 import io.opentelemetry.sdk.common.export.MemoryMode;
 import io.opentelemetry.sdk.common.export.RetryPolicy;
+import io.opentelemetry.sdk.common.export.internal.Authenticator;
 import java.net.URL;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -67,6 +70,44 @@ public final class OtlpDeclarativeConfigUtil {
       boolean isHttpProtobuf,
       Consumer<InternalTelemetryVersion> internalTelemetryVersionConsumer,
       Runnable setNoopMeterProvider) {
+    configureOtlpExporterBuilder(
+        dataType,
+        baseConfig,
+        setComponentLoader,
+        setEndpoint,
+        addHeader,
+        setCompression,
+        setTimeout,
+        setTrustedCertificates,
+        setClientTls,
+        setRetryPolicy,
+        setMemoryMode,
+        setMaxRequestSize,
+        isHttpProtobuf,
+        internalTelemetryVersionConsumer,
+        setNoopMeterProvider,
+        unused -> {});
+  }
+
+  /** Invoke the setters with the OTLP configuration for the {@code dataType}. */
+  @SuppressWarnings("TooManyParameters")
+  public static void configureOtlpExporterBuilder(
+      String dataType,
+      DeclarativeConfigProperties baseConfig,
+      Consumer<ComponentLoader> setComponentLoader,
+      Consumer<String> setEndpoint,
+      BiConsumer<String, String> addHeader,
+      Consumer<String> setCompression,
+      Consumer<Duration> setTimeout,
+      Consumer<byte[]> setTrustedCertificates,
+      BiConsumer<byte[], byte[]> setClientTls,
+      Consumer<RetryPolicy> setRetryPolicy,
+      Consumer<MemoryMode> setMemoryMode,
+      Consumer<Long> setMaxRequestSize,
+      boolean isHttpProtobuf,
+      Consumer<InternalTelemetryVersion> internalTelemetryVersionConsumer,
+      Runnable setNoopMeterProvider,
+      Consumer<Authenticator> setAuthenticator) {
     if (!(baseConfig instanceof ExtendedDeclarativeConfigProperties)) {
       throw new IllegalArgumentException("Expected ExtendedDeclarativeConfigProperties");
     }
@@ -139,6 +180,13 @@ public final class OtlpDeclarativeConfigUtil {
 
     IncubatingExporterBuilderUtil.configureExporterMemoryMode(config, setMemoryMode);
 
+    DeclarativeConfigProperties authenticatorConfig =
+        config.getStructured("authenticator/development");
+    if (authenticatorConfig != null) {
+      setAuthenticator.accept(
+          resolveAuthenticator(authenticatorConfig, config.getComponentLoader()));
+    }
+
     // InternalTelemetryVersion defaults to disabled (i.e. null) until semantic conventions are
     // stable. To disable, set a noop meter provider.
     InternalTelemetryVersion telemetryVersion =
@@ -167,6 +215,38 @@ public final class OtlpDeclarativeConfigUtil {
         throw new DeclarativeConfigException(
             "Invalid sdk telemetry version: " + internalTelemetryVersion);
     }
+  }
+
+  private static Authenticator resolveAuthenticator(
+      DeclarativeConfigProperties authenticatorConfig, ComponentLoader componentLoader) {
+    Set<String> keys = authenticatorConfig.getPropertyKeys();
+    if (keys.size() != 1) {
+      throw new DeclarativeConfigException(
+          "Invalid authenticator configuration, must contain a single entry: " + keys);
+    }
+    String name = keys.iterator().next();
+    DeclarativeConfigProperties authProps =
+        authenticatorConfig.getStructured(name, DeclarativeConfigProperties.empty());
+    for (ComponentProvider provider : componentLoader.load(ComponentProvider.class)) {
+      if (provider.getType() == Authenticator.class && provider.getName().equals(name)) {
+        try {
+          Object component = provider.create(authProps);
+          return Authenticator.class.cast(component);
+        } catch (DeclarativeConfigException e) {
+          throw e;
+        } catch (Throwable throwable) {
+          throw new DeclarativeConfigException(
+              "Error configuring " + Authenticator.class.getName() + " with name \"" + name + "\"",
+              throwable);
+        }
+      }
+    }
+    throw new DeclarativeConfigException(
+        "No component provider detected for "
+            + Authenticator.class.getName()
+            + " with name \""
+            + name
+            + "\".");
   }
 
   private OtlpDeclarativeConfigUtil() {}

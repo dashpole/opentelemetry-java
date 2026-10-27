@@ -14,12 +14,14 @@ import io.opentelemetry.sdk.common.InternalTelemetryVersion;
 import io.opentelemetry.sdk.common.export.HttpResponse;
 import io.opentelemetry.sdk.common.export.HttpSender;
 import io.opentelemetry.sdk.common.export.MessageWriter;
+import io.opentelemetry.sdk.common.export.internal.Authenticator;
 import io.opentelemetry.sdk.common.internal.StandardComponentId;
 import io.opentelemetry.sdk.common.internal.ThrottlingLogger;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.logging.Level;
@@ -47,6 +49,7 @@ public final class HttpExporter {
   private final ExporterInstrumentation exporterMetrics;
   private final boolean exportAsJson;
   private final long maxRequestBodySize;
+  @Nullable private final Authenticator authenticator;
 
   public HttpExporter(
       StandardComponentId componentId,
@@ -56,6 +59,26 @@ public final class HttpExporter {
       URI endpoint,
       boolean exportAsJson,
       long maxRequestBodySize) {
+    this(
+        componentId,
+        httpSender,
+        meterProviderSupplier,
+        internalTelemetryVersion,
+        endpoint,
+        exportAsJson,
+        maxRequestBodySize,
+        null);
+  }
+
+  public HttpExporter(
+      StandardComponentId componentId,
+      HttpSender httpSender,
+      Supplier<MeterProvider> meterProviderSupplier,
+      InternalTelemetryVersion internalTelemetryVersion,
+      URI endpoint,
+      boolean exportAsJson,
+      long maxRequestBodySize,
+      @Nullable Authenticator authenticator) {
     this.type = componentId.getStandardType().signal().logFriendlyName();
     this.httpSender = httpSender;
     this.exporterMetrics =
@@ -63,6 +86,7 @@ public final class HttpExporter {
             internalTelemetryVersion, meterProviderSupplier, componentId, endpoint);
     this.exportAsJson = exportAsJson;
     this.maxRequestBodySize = maxRequestBodySize;
+    this.authenticator = authenticator;
   }
 
   public CompletableResultCode export(Marshaler exportRequest, int numItems) {
@@ -212,7 +236,11 @@ public final class HttpExporter {
       logger.log(Level.INFO, "Calling shutdown() multiple times.");
       return CompletableResultCode.ofSuccess();
     }
-    return httpSender.shutdown();
+    if (authenticator == null) {
+      return httpSender.shutdown();
+    }
+    return CompletableResultCode.ofAll(
+        Arrays.asList(httpSender.shutdown(), authenticator.shutdown()));
   }
 
   private static String extractErrorStatus(String statusMessage, @Nullable byte[] responseBody) {

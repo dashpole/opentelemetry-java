@@ -17,6 +17,7 @@ import io.opentelemetry.sdk.common.export.HttpSender;
 import io.opentelemetry.sdk.common.export.HttpSenderProvider;
 import io.opentelemetry.sdk.common.export.ProxyOptions;
 import io.opentelemetry.sdk.common.export.RetryPolicy;
+import io.opentelemetry.sdk.common.export.internal.Authenticator;
 import io.opentelemetry.sdk.common.internal.ComponentId;
 import io.opentelemetry.sdk.common.internal.StandardComponentId;
 import java.net.URI;
@@ -61,6 +62,7 @@ public final class HttpExporterBuilder {
   private boolean exportAsJson = false;
   private final Map<String, String> constantHeaders = new HashMap<>();
   private Supplier<Map<String, String>> headerSupplier = Collections::emptyMap;
+  @Nullable private Authenticator authenticator;
 
   private TlsConfigHelper tlsConfigHelper = new TlsConfigHelper();
   @Nullable private RetryPolicy retryPolicy = RetryPolicy.getDefault();
@@ -121,6 +123,11 @@ public final class HttpExporterBuilder {
 
   public HttpExporterBuilder setHeadersSupplier(Supplier<Map<String, String>> headerSupplier) {
     this.headerSupplier = headerSupplier;
+    return this;
+  }
+
+  public HttpExporterBuilder setAuthenticator(@Nullable Authenticator authenticator) {
+    this.authenticator = authenticator;
     return this;
   }
 
@@ -209,6 +216,7 @@ public final class HttpExporterBuilder {
     copy.compressor = compressor;
     copy.constantHeaders.putAll(constantHeaders);
     copy.headerSupplier = headerSupplier;
+    copy.authenticator = authenticator;
     copy.tlsConfigHelper = tlsConfigHelper.copy();
     if (retryPolicy != null) {
       copy.retryPolicy = retryPolicy.toBuilder().build();
@@ -223,6 +231,7 @@ public final class HttpExporterBuilder {
   }
 
   public HttpExporter build() {
+    Authenticator finalAuthenticator = this.authenticator;
     Supplier<Map<String, List<String>>> headerSupplier =
         () -> {
           Map<String, List<String>> result = new HashMap<>();
@@ -241,6 +250,9 @@ public final class HttpExporterBuilder {
                         merged.addAll(v2);
                         return merged;
                       }));
+          if (finalAuthenticator != null) {
+            mergeAuthenticatorHeaders(result, finalAuthenticator.getHeaders());
+          }
           return result;
         };
 
@@ -273,7 +285,24 @@ public final class HttpExporterBuilder {
         internalTelemetryVersion,
         endpoint,
         exportAsJson,
-        maxRequestBodySize);
+        maxRequestBodySize,
+        authenticator);
+  }
+
+  static void mergeAuthenticatorHeaders(
+      Map<String, List<String>> result, @Nullable Map<String, String> authHeaders) {
+    if (authHeaders == null || authHeaders.isEmpty()) {
+      return;
+    }
+    for (Map.Entry<String, String> authEntry : authHeaders.entrySet()) {
+      String authKey = authEntry.getKey();
+      String authValue = authEntry.getValue();
+      if (authKey == null || authValue == null) {
+        continue;
+      }
+      result.keySet().removeIf(existingKey -> existingKey.equalsIgnoreCase(authKey));
+      result.put(authKey, Collections.singletonList(authValue));
+    }
   }
 
   public String toString(boolean includePrefixAndSuffix) {
@@ -307,6 +336,9 @@ public final class HttpExporterBuilder {
       joiner.add("executorService=" + executorService);
     }
     joiner.add("maxRequestBodySize=" + maxRequestBodySize);
+    if (authenticator != null) {
+      joiner.add("authenticator=" + authenticator);
+    }
     joiner.add("exporterType=" + exporterType);
     joiner.add("internalTelemetrySchemaVersion=" + internalTelemetryVersion);
     // Note: omit tlsConfigHelper because we can't log the configuration in any readable way

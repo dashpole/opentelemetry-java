@@ -199,19 +199,10 @@ public final class JdkHttpSender implements HttpSender {
   // Visible for testing
   HttpResponse sendInternal(MessageWriter requestBodyWriter) throws IOException {
     long startTimeNanos = System.nanoTime();
-    HttpRequest.Builder requestBuilder = HttpRequest.newBuilder().uri(endpoint).timeout(timeout);
-    Map<String, List<String>> headers = headerSupplier.get();
-    if (headers != null) {
-      headers.forEach((key, values) -> values.forEach(value -> requestBuilder.header(key, value)));
-    }
-    requestBuilder.header("Content-Type", contentType);
-    // Advertise gzip and identity response encoding support.
-    requestBuilder.header("Accept-Encoding", "gzip, identity");
 
     NoCopyByteArrayOutputStream os = threadLocalBaos.get();
     os.reset();
     if (compressor != null) {
-      requestBuilder.header("Content-Encoding", compressor.getEncoding());
       try (OutputStream compressed = compressor.compress(os)) {
         requestBodyWriter.writeMessage(compressed);
       } catch (IOException e) {
@@ -222,10 +213,11 @@ public final class JdkHttpSender implements HttpSender {
     }
 
     ByteBufferPool byteBufferPool = threadLocalByteBufPool.get();
-    requestBuilder.POST(new BodyPublisher(os.buf(), os.size(), byteBufferPool::getBuffer));
+    BodyPublisher bodyPublisher = new BodyPublisher(os.buf(), os.size(), byteBufferPool::getBuffer);
 
     // If no retry policy, short circuit
     if (retryPolicy == null) {
+      HttpRequest.Builder requestBuilder = newRequestBuilder(bodyPublisher, timeout);
       return toHttpResponse(sendRequest(requestBuilder, byteBufferPool));
     }
 
@@ -264,8 +256,10 @@ public final class JdkHttpSender implements HttpSender {
       }
       httpResponse = null;
       exception = null;
-      requestBuilder.timeout(timeout.minusNanos(System.nanoTime() - startTimeNanos));
       try {
+        HttpRequest.Builder requestBuilder =
+            newRequestBuilder(
+                bodyPublisher, timeout.minusNanos(System.nanoTime() - startTimeNanos));
         java.net.http.HttpResponse<InputStream> rawResponse =
             sendRequest(requestBuilder, byteBufferPool);
         httpResponse = toHttpResponse(rawResponse);
@@ -307,6 +301,24 @@ public final class JdkHttpSender implements HttpSender {
       return httpResponse;
     }
     throw exception;
+  }
+
+  private HttpRequest.Builder newRequestBuilder(
+      BodyPublisher bodyPublisher, Duration requestTimeout) {
+    HttpRequest.Builder requestBuilder =
+        HttpRequest.newBuilder().uri(endpoint).timeout(requestTimeout);
+    Map<String, List<String>> headers = headerSupplier.get();
+    if (headers != null) {
+      headers.forEach((key, values) -> values.forEach(value -> requestBuilder.header(key, value)));
+    }
+    requestBuilder.header("Content-Type", contentType);
+    // Advertise gzip and identity response encoding support.
+    requestBuilder.header("Accept-Encoding", "gzip, identity");
+    if (compressor != null) {
+      requestBuilder.header("Content-Encoding", compressor.getEncoding());
+    }
+    requestBuilder.POST(bodyPublisher);
+    return requestBuilder;
   }
 
   private static String responseStringRepresentation(HttpResponse response) {

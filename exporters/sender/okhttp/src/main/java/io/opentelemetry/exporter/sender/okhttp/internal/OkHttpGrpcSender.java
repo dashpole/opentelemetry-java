@@ -41,10 +41,10 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalLong;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -165,22 +165,7 @@ public final class OkHttpGrpcSender implements GrpcSender {
   public void send(
       MessageWriter messageWriter, Consumer<GrpcResponse> onResponse, Consumer<Throwable> onError) {
     RetryState retryState = newRetryState();
-    Request.Builder requestBuilder = new Request.Builder().url(url);
-
-    Map<String, List<String>> headers = headersSupplier.get();
-    if (headers != null) {
-      headers.forEach(
-          (key, values) -> values.forEach(value -> requestBuilder.addHeader(key, value)));
-    }
-    requestBuilder.addHeader("te", "trailers");
-    // Mirror grpc-java's default DecompressorRegistry which advertises identity and gzip.
-    requestBuilder.addHeader("grpc-accept-encoding", "identity,gzip");
-    if (compressor != null) {
-      requestBuilder.addHeader("grpc-encoding", compressor.getEncoding());
-    }
-    requestBuilder.post(new GrpcRequestBody(messageWriter, compressor));
-
-    sendAttempt(requestBuilder, messageWriter, onResponse, onError, 0, retryState);
+    sendAttempt(messageWriter, onResponse, onError, 0, retryState);
   }
 
   @Nullable
@@ -199,7 +184,6 @@ public final class OkHttpGrpcSender implements GrpcSender {
   }
 
   private void sendAttempt(
-      Request.Builder requestBuilder,
       MessageWriter messageWriter,
       Consumer<GrpcResponse> onResponse,
       Consumer<Throwable> onError,
@@ -209,6 +193,23 @@ public final class OkHttpGrpcSender implements GrpcSender {
     try {
       InstrumentationUtil.suppressInstrumentation(
           () -> {
+            Request.Builder requestBuilder = new Request.Builder().url(url);
+
+            Map<String, List<String>> headers = headersSupplier.get();
+            if (headers != null) {
+              headers.forEach(
+                  (key, values) ->
+                      values.forEach(
+                          value -> requestBuilder.addHeader(key.toLowerCase(Locale.ROOT), value)));
+            }
+            requestBuilder.addHeader("te", "trailers");
+            // Mirror grpc-java's default DecompressorRegistry which advertises identity and gzip.
+            requestBuilder.addHeader("grpc-accept-encoding", "identity,gzip");
+            if (compressor != null) {
+              requestBuilder.addHeader("grpc-encoding", compressor.getEncoding());
+            }
+            requestBuilder.post(new GrpcRequestBody(messageWriter, compressor));
+
             Call call = client.newCall(requestBuilder.build());
             if (retryState != null && !retryState.configureCallTimeout(call)) {
               onError.accept(new SocketTimeoutException("Call timed out"));
@@ -224,13 +225,7 @@ public final class OkHttpGrpcSender implements GrpcSender {
                         && retryState.canRetry(attempt)
                         && retryState.shouldRetryOnException(e)
                         && retryState.backoff(OptionalLong.empty())) {
-                      sendAttempt(
-                          requestBuilder,
-                          messageWriter,
-                          onResponse,
-                          onError,
-                          attempt + 1,
-                          retryState);
+                      sendAttempt(messageWriter, onResponse, onError, attempt + 1, retryState);
                     } else {
                       onError.accept(e);
                     }
@@ -247,12 +242,7 @@ public final class OkHttpGrpcSender implements GrpcSender {
                               && isRetryable(resolvedResponse)
                               && retryState.backoff(OptionalLong.empty())) {
                             sendAttempt(
-                                requestBuilder,
-                                messageWriter,
-                                onResponse,
-                                onError,
-                                attempt + 1,
-                                retryState);
+                                messageWriter, onResponse, onError, attempt + 1, retryState);
                           } else {
                             onResponse.accept(resolvedResponse);
                           }
@@ -260,7 +250,7 @@ public final class OkHttpGrpcSender implements GrpcSender {
                   }
                 });
           });
-    } catch (RejectedExecutionException e) {
+    } catch (RuntimeException e) {
       onError.accept(e);
     }
   }

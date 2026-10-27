@@ -52,7 +52,8 @@ public class OtlpGrpcMetricExporterComponentProvider implements ComponentProvide
         builder::setMaxRequestMessageSize,
         /* isHttpProtobuf= */ false,
         builder::setInternalTelemetryVersion,
-        () -> builder.setMeterProvider(MeterProvider::noop));
+        () -> builder.setMeterProvider(MeterProvider::noop),
+        authenticator -> OtlpExporterUtil.setAuthenticator(builder, authenticator));
     IncubatingExporterBuilderUtil.configureOtlpAggregationTemporality(
         config, builder::setAggregationTemporalitySelector);
     IncubatingExporterBuilderUtil.configureOtlpHistogramDefaultAggregation(

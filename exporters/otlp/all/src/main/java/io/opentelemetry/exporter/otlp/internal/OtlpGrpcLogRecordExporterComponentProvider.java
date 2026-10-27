@@ -51,7 +51,8 @@ public class OtlpGrpcLogRecordExporterComponentProvider implements ComponentProv
         builder::setMaxRequestMessageSize,
         /* isHttpProtobuf= */ false,
         builder::setInternalTelemetryVersion,
-        () -> builder.setMeterProvider(MeterProvider::noop));
+        () -> builder.setMeterProvider(MeterProvider::noop),
+        authenticator -> OtlpExporterUtil.setAuthenticator(builder, authenticator));
 
     return builder.build();
   }

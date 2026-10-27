@@ -15,14 +15,17 @@ import io.opentelemetry.sdk.common.export.GrpcResponse;
 import io.opentelemetry.sdk.common.export.GrpcSender;
 import io.opentelemetry.sdk.common.export.GrpcStatusCode;
 import io.opentelemetry.sdk.common.export.MessageWriter;
+import io.opentelemetry.sdk.common.export.internal.Authenticator;
 import io.opentelemetry.sdk.common.internal.StandardComponentId;
 import io.opentelemetry.sdk.common.internal.ThrottlingLogger;
 import java.io.IOException;
 import java.net.URI;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 
 /**
  * Generic gRPC exporter.
@@ -45,6 +48,7 @@ public final class GrpcExporter {
   private final GrpcSender grpcSender;
   private final ExporterInstrumentation exporterMetrics;
   private final long maxRequestMessageSize;
+  @Nullable private final Authenticator authenticator;
 
   public GrpcExporter(
       GrpcSender grpcSender,
@@ -53,12 +57,31 @@ public final class GrpcExporter {
       Supplier<MeterProvider> meterProviderSupplier,
       URI endpoint,
       long maxRequestMessageSize) {
+    this(
+        grpcSender,
+        internalTelemetryVersion,
+        componentId,
+        meterProviderSupplier,
+        endpoint,
+        maxRequestMessageSize,
+        null);
+  }
+
+  public GrpcExporter(
+      GrpcSender grpcSender,
+      InternalTelemetryVersion internalTelemetryVersion,
+      StandardComponentId componentId,
+      Supplier<MeterProvider> meterProviderSupplier,
+      URI endpoint,
+      long maxRequestMessageSize,
+      @Nullable Authenticator authenticator) {
     this.type = componentId.getStandardType().signal().logFriendlyName();
     this.grpcSender = grpcSender;
     this.exporterMetrics =
         new ExporterInstrumentation(
             internalTelemetryVersion, meterProviderSupplier, componentId, endpoint);
     this.maxRequestMessageSize = maxRequestMessageSize;
+    this.authenticator = authenticator;
   }
 
   public CompletableResultCode export(Marshaler exportRequest, int numItems) {
@@ -182,6 +205,10 @@ public final class GrpcExporter {
       logger.log(Level.INFO, "Calling shutdown() multiple times.");
       return CompletableResultCode.ofSuccess();
     }
-    return grpcSender.shutdown();
+    if (authenticator == null) {
+      return grpcSender.shutdown();
+    }
+    return CompletableResultCode.ofAll(
+        Arrays.asList(grpcSender.shutdown(), authenticator.shutdown()));
   }
 }

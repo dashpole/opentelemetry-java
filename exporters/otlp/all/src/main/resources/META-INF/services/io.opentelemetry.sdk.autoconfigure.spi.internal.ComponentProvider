@@ -4,3 +4,4 @@ io.opentelemetry.exporter.otlp.internal.OtlpHttpLogRecordExporterComponentProvid
 io.opentelemetry.exporter.otlp.internal.OtlpGrpcMetricExporterComponentProvider
 io.opentelemetry.exporter.otlp.internal.OtlpGrpcSpanExporterComponentProvider
 io.opentelemetry.exporter.otlp.internal.OtlpGrpcLogRecordExporterComponentProvider
+io.opentelemetry.exporter.otlp.internal.OAuth2AuthenticatorComponentProvider

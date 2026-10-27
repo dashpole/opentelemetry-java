@@ -113,6 +113,23 @@ public final class OkHttpHttpSender implements HttpSender {
               retryPolicy, OkHttpHttpSender::isRetryable, OkHttpHttpSender::retryDelayNanos));
     }
 
+    this.headerSupplier = headerSupplier;
+    builder.addInterceptor(
+        chain -> {
+          Request.Builder requestBuilder = chain.request().newBuilder();
+          Map<String, List<String>> headers;
+          try {
+            headers = this.headerSupplier.get();
+          } catch (RuntimeException e) {
+            throw new HeaderSupplierException(e);
+          }
+          if (headers != null) {
+            headers.forEach(
+                (key, values) -> values.forEach(value -> requestBuilder.addHeader(key, value)));
+          }
+          return chain.proceed(requestBuilder.build());
+        });
+
     boolean isPlainHttp = endpoint.getScheme().equals("http");
     if (isPlainHttp) {
       builder.connectionSpecs(Collections.singletonList(ConnectionSpec.CLEARTEXT));
@@ -143,7 +160,6 @@ public final class OkHttpHttpSender implements HttpSender {
     this.url = HttpUrl.get(endpoint);
     this.mediaType = MediaType.parse(contentType);
     this.compressor = compressor;
-    this.headerSupplier = headerSupplier;
     this.maxResponseBodySize = maxResponseBodySize;
   }
 
@@ -156,11 +172,6 @@ public final class OkHttpHttpSender implements HttpSender {
       MessageWriter messageWriter, Consumer<HttpResponse> onResponse, Consumer<Throwable> onError) {
     Request.Builder requestBuilder = new Request.Builder().url(url);
 
-    Map<String, List<String>> headers = headerSupplier.get();
-    if (headers != null) {
-      headers.forEach(
-          (key, values) -> values.forEach(value -> requestBuilder.addHeader(key, value)));
-    }
     if (compressor != null) {
       requestBuilder.addHeader("Content-Encoding", compressor.getEncoding());
     }
@@ -179,7 +190,11 @@ public final class OkHttpHttpSender implements HttpSender {
                       new Callback() {
                         @Override
                         public void onFailure(Call call, IOException e) {
-                          onError.accept(e);
+                          if (e instanceof HeaderSupplierException && e.getCause() != null) {
+                            onError.accept(e.getCause());
+                          } else {
+                            onError.accept(e);
+                          }
                         }
 
                         @Override
@@ -189,6 +204,12 @@ public final class OkHttpHttpSender implements HttpSender {
                       }));
     } catch (RejectedExecutionException e) {
       onError.accept(e);
+    }
+  }
+
+  static final class HeaderSupplierException extends IOException {
+    HeaderSupplierException(Throwable cause) {
+      super(cause);
     }
   }
 

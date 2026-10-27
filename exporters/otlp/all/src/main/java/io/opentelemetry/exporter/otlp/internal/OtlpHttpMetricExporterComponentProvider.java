@@ -52,7 +52,8 @@ public class OtlpHttpMetricExporterComponentProvider implements ComponentProvide
         builder::setMaxRequestBodySize,
         /* isHttpProtobuf= */ true,
         builder::setInternalTelemetryVersion,
-        () -> builder.setMeterProvider(MeterProvider::noop));
+        () -> builder.setMeterProvider(MeterProvider::noop),
+        authenticator -> OtlpExporterUtil.setAuthenticator(builder, authenticator));
     IncubatingExporterBuilderUtil.configureOtlpAggregationTemporality(
         config, builder::setAggregationTemporalitySelector);
     IncubatingExporterBuilderUtil.configureOtlpHistogramDefaultAggregation(
