@@ -8,6 +8,7 @@ package io.opentelemetry.api.incubator.metrics;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.api.metrics.MeterProvider;
 import io.opentelemetry.api.testing.internal.AbstractDefaultMeterTest;
@@ -29,6 +30,11 @@ class ExtendedDefaultMeterTest extends AbstractDefaultMeterTest {
   void incubatingApiIsLoaded() {
     Meter meter = MeterProvider.noop().get("test");
     assertThat(meter).isSameAs(OpenTelemetry.noop().getMeter("test"));
+    assertThat(meter).isInstanceOf(ExtendedMeter.class);
+    ExtendedMeter extendedMeter = (ExtendedMeter) meter;
+    assertThat(extendedMeter.attributeEnabled("key")).isFalse();
+    assertThat(extendedMeter.attributeEnabled("key", Stability.STABLE)).isFalse();
+    assertThat(extendedMeter.attributeEnabled("key", Stability.DEVELOPMENT)).isFalse();
 
     assertThat(meter.gaugeBuilder("test").ofLongs()).isInstanceOf(ExtendedLongGaugeBuilder.class);
     assertThat(meter.gaugeBuilder("test").ofLongs().build().isEnabled()).isFalse();

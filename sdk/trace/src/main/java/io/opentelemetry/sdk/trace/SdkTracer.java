@@ -5,6 +5,7 @@
 
 package io.opentelemetry.sdk.trace;
 
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.api.trace.TracerProvider;
@@ -54,6 +55,21 @@ class SdkTracer implements Tracer {
   @Override
   public boolean isEnabled() {
     return tracerEnabled;
+  }
+
+  public boolean isEnabled(Stability stability) {
+    // SdkTracerProvider returns a no-op Tracer when there are no SpanProcessors.
+    if (!tracerEnabled) {
+      return false;
+    }
+    return stability == null || stability.compareTo(sharedState.getMinimumStability()) >= 0;
+  }
+
+  public boolean attributeEnabled(String key, Stability stability) {
+    if (key == null) {
+      return false;
+    }
+    return isEnabled(stability);
   }
 
   /**

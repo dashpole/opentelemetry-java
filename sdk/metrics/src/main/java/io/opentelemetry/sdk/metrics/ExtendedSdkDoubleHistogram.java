@@ -11,6 +11,7 @@ import io.opentelemetry.api.incubator.metrics.BoundDoubleHistogram;
 import io.opentelemetry.api.incubator.metrics.ExtendedDoubleHistogram;
 import io.opentelemetry.api.incubator.metrics.ExtendedDoubleHistogramBuilder;
 import io.opentelemetry.api.incubator.metrics.ExtendedLongHistogramBuilder;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.sdk.metrics.internal.descriptor.InstrumentDescriptor;
 import io.opentelemetry.sdk.metrics.internal.state.BoundStorageHandle;
@@ -83,6 +84,18 @@ final class ExtendedSdkDoubleHistogram extends SdkDoubleHistogram
     @Override
     public ExtendedDoubleHistogramBuilder setAttributesAdvice(List<AttributeKey<?>> attributes) {
       builder.setAdviceAttributes(attributes);
+      return this;
+    }
+
+    @Override
+    public ExtendedDoubleHistogramBuilder setStability(Stability stability) {
+      builder.setStability(stability);
+      return this;
+    }
+
+    @Override
+    public ExtendedDoubleHistogramBuilder setOptIn(boolean optIn) {
+      builder.setOptIn(optIn);
       return this;
     }
   }

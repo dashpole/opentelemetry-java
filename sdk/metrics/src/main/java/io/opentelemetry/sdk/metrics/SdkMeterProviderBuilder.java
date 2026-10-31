@@ -5,6 +5,7 @@
 
 package io.opentelemetry.sdk.metrics;
 
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.sdk.common.Clock;
 import io.opentelemetry.sdk.common.InstrumentationScopeInfo;
 import io.opentelemetry.sdk.common.internal.ScopeConfigurator;
@@ -53,6 +54,7 @@ public final class SdkMeterProviderBuilder {
   private ExemplarFilterInternal exemplarFilter = DEFAULT_EXEMPLAR_FILTER;
   private ScopeConfiguratorBuilder<MeterConfig> meterConfiguratorBuilder =
       MeterConfig.configuratorBuilder();
+  private Stability minimumStability = Stability.STABLE;
 
   SdkMeterProviderBuilder() {}
 
@@ -240,6 +242,23 @@ public final class SdkMeterProviderBuilder {
     return this;
   }
 
+  /**
+   * Sets the minimum {@link Stability} level of instruments and attributes enabled by default on
+   * meters from this provider. Instruments with a stability lower than {@code minimumStability} use
+   * {@link Aggregation#drop()} unless explicitly enabled by a matching {@link View}. Attributes
+   * with a lower stability are reported as disabled by {@code attributeEnabled} unless a matching
+   * {@link View} explicitly includes them in its attribute filter. Defaults to {@link
+   * Stability#STABLE}.
+   *
+   * <p>This method is experimental so not public. You may reflectively call it using {@link
+   * SdkMeterProviderUtil#setMinimumStability(SdkMeterProviderBuilder, Stability)}.
+   */
+  SdkMeterProviderBuilder setMinimumStability(Stability minimumStability) {
+    Objects.requireNonNull(minimumStability, "minimumStability");
+    this.minimumStability = minimumStability;
+    return this;
+  }
+
   /** Returns an {@link SdkMeterProvider} built with the configuration of this builder. */
   public SdkMeterProvider build() {
     SdkResourceProvider effectiveSdkResourceProvider =
@@ -251,6 +270,7 @@ public final class SdkMeterProviderBuilder {
         clock,
         effectiveSdkResourceProvider,
         exemplarFilter,
-        meterConfiguratorBuilder.build());
+        meterConfiguratorBuilder.build(),
+        minimumStability);
   }
 }

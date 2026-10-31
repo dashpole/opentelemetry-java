@@ -9,6 +9,7 @@ import static java.util.stream.Collectors.toMap;
 
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.internal.GuardedBy;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.metrics.BatchCallback;
 import io.opentelemetry.api.metrics.DoubleGaugeBuilder;
 import io.opentelemetry.api.metrics.DoubleHistogramBuilder;
@@ -48,7 +49,7 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 /** {@link SdkMeter} is SDK implementation of {@link Meter}. */
-final class SdkMeter implements Meter {
+class SdkMeter implements Meter {
 
   private static final Logger logger = Logger.getLogger(SdkMeter.class.getName());
   private static final boolean INCUBATOR_AVAILABLE;
@@ -114,6 +115,34 @@ final class SdkMeter implements Meter {
         registeredReaders.stream()
             .collect(toMap(Function.identity(), unused -> new MetricStorageRegistry()));
     this.meterEnabled = meterConfig.isEnabled();
+  }
+
+  static SdkMeter create(
+      MeterProviderSharedState meterProviderSharedState,
+      InstrumentationScopeInfo instrumentationScopeInfo,
+      List<RegisteredReader> registeredReaders,
+      MeterConfig meterConfig) {
+    return INCUBATOR_AVAILABLE
+        ? IncubatingUtil.createExtendedMeter(
+            meterProviderSharedState, instrumentationScopeInfo, registeredReaders, meterConfig)
+        : new SdkMeter(
+            meterProviderSharedState, instrumentationScopeInfo, registeredReaders, meterConfig);
+  }
+
+  public boolean attributeEnabled(String key, Stability stability) {
+    // SdkMeterProvider returns a no-op Meter when there are no MetricReaders.
+    if (key == null || !meterEnabled) {
+      return false;
+    }
+    Stability effectiveStability = stability == null ? Stability.STABLE : stability;
+    for (RegisteredReader registeredReader : readerStorageRegistries.keySet()) {
+      if (registeredReader
+          .getViewRegistry()
+          .isAttributeEnabled(key, effectiveStability, instrumentationScopeInfo)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   void updateMeterConfig(MeterConfig meterConfig) {

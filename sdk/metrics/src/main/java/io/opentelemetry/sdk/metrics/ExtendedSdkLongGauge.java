@@ -10,6 +10,7 @@ import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.incubator.metrics.BoundLongGauge;
 import io.opentelemetry.api.incubator.metrics.ExtendedLongGauge;
 import io.opentelemetry.api.incubator.metrics.ExtendedLongGaugeBuilder;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.sdk.metrics.internal.descriptor.Advice;
 import io.opentelemetry.sdk.metrics.internal.descriptor.InstrumentDescriptor;
@@ -78,6 +79,18 @@ final class ExtendedSdkLongGauge extends SdkLongGauge implements ExtendedLongGau
     @Override
     public ExtendedLongGaugeBuilder setAttributesAdvice(List<AttributeKey<?>> attributes) {
       builder.setAdviceAttributes(attributes);
+      return this;
+    }
+
+    @Override
+    public ExtendedLongGaugeBuilder setStability(Stability stability) {
+      builder.setStability(stability);
+      return this;
+    }
+
+    @Override
+    public ExtendedLongGaugeBuilder setOptIn(boolean optIn) {
+      builder.setOptIn(optIn);
       return this;
     }
   }

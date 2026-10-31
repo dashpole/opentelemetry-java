@@ -6,6 +6,7 @@
 package io.opentelemetry.api.incubator.metrics;
 
 import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.metrics.BatchCallback;
 import io.opentelemetry.api.metrics.DoubleCounter;
 import io.opentelemetry.api.metrics.DoubleCounterBuilder;
@@ -43,7 +44,7 @@ import javax.annotation.concurrent.ThreadSafe;
  * <p>This implementation should induce as close to zero overhead as possible.
  */
 @ThreadSafe
-class ExtendedDefaultMeter implements Meter {
+class ExtendedDefaultMeter implements ExtendedMeter {
 
   private static final Meter INSTANCE = new ExtendedDefaultMeter();
 
@@ -61,6 +62,11 @@ class ExtendedDefaultMeter implements Meter {
 
   static Meter getNoop() {
     return INSTANCE;
+  }
+
+  @Override
+  public boolean attributeEnabled(String key, Stability stability) {
+    return false;
   }
 
   @Override

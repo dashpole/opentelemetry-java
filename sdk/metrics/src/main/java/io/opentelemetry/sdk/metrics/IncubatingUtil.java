@@ -9,6 +9,11 @@ import io.opentelemetry.api.metrics.DoubleGaugeBuilder;
 import io.opentelemetry.api.metrics.DoubleHistogramBuilder;
 import io.opentelemetry.api.metrics.LongCounterBuilder;
 import io.opentelemetry.api.metrics.LongUpDownCounterBuilder;
+import io.opentelemetry.sdk.common.InstrumentationScopeInfo;
+import io.opentelemetry.sdk.metrics.internal.MeterConfig;
+import io.opentelemetry.sdk.metrics.internal.export.RegisteredReader;
+import io.opentelemetry.sdk.metrics.internal.state.MeterProviderSharedState;
+import java.util.List;
 
 /**
  * Utilities for interacting with {@code io.opentelemetry:opentelemetry-api-incubator}, which is not
@@ -18,6 +23,15 @@ import io.opentelemetry.api.metrics.LongUpDownCounterBuilder;
 final class IncubatingUtil {
 
   private IncubatingUtil() {}
+
+  static SdkMeter createExtendedMeter(
+      MeterProviderSharedState meterProviderSharedState,
+      InstrumentationScopeInfo instrumentationScopeInfo,
+      List<RegisteredReader> registeredReaders,
+      MeterConfig meterConfig) {
+    return new ExtendedSdkMeter(
+        meterProviderSharedState, instrumentationScopeInfo, registeredReaders, meterConfig);
+  }
 
   static LongCounterBuilder createExtendedLongCounterBuilder(SdkMeter sdkMeter, String name) {
     return new ExtendedSdkLongCounter.ExtendedSdkLongCounterBuilder(sdkMeter, name);

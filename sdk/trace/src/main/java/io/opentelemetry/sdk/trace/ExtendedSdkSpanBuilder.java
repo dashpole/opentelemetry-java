@@ -11,6 +11,7 @@ import io.opentelemetry.api.incubator.propagation.ExtendedContextPropagators;
 import io.opentelemetry.api.incubator.trace.ExtendedSpanBuilder;
 import io.opentelemetry.api.incubator.trace.SpanCallable;
 import io.opentelemetry.api.incubator.trace.SpanRunnable;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.SpanKind;
@@ -98,6 +99,12 @@ final class ExtendedSdkSpanBuilder extends SdkSpanBuilder implements ExtendedSpa
   @Override
   public ExtendedSpanBuilder setStartTimestamp(long startTimestamp, TimeUnit unit) {
     super.setStartTimestamp(startTimestamp, unit);
+    return this;
+  }
+
+  @Override
+  public ExtendedSpanBuilder setStability(Stability stability) {
+    super.setStability(stability);
     return this;
   }
 

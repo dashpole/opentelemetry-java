@@ -8,6 +8,7 @@ package io.opentelemetry.api.incubator.trace;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.SpanContext;
@@ -146,5 +147,13 @@ public interface ExtendedSpanBuilder extends SpanBuilder {
   @Override
   default ExtendedSpanBuilder setStartTimestamp(Instant startTimestamp) {
     return (ExtendedSpanBuilder) SpanBuilder.super.setStartTimestamp(startTimestamp);
+  }
+
+  /**
+   * Sets the {@link Stability} level of the span being built. If not set, defaults to {@link
+   * Stability#STABLE}.
+   */
+  default ExtendedSpanBuilder setStability(Stability stability) {
+    return this;
   }
 }

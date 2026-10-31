@@ -85,6 +85,11 @@ public final class IncludeExcludePredicate implements Predicate<String> {
     return predicate.test(s);
   }
 
+  /** Returns {@code true} if an explicit {@code included} set or pattern was configured. */
+  public boolean hasIncluded() {
+    return included != null;
+  }
+
   @Override
   public String toString() {
     StringJoiner joiner = new StringJoiner(", ", "IncludeExcludePredicate{", "}");

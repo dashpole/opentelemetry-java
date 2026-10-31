@@ -28,6 +28,7 @@ public final class ViewBuilder {
   private Aggregation aggregation = Aggregation.defaultAggregation();
   private Predicate<String> attributeFilter = StringPredicates.ALL;
   private int cardinalityLimit = MetricStorage.DEFAULT_MAX_CARDINALITY;
+  @Nullable private Boolean enabled;
 
   ViewBuilder() {}
 
@@ -125,8 +126,27 @@ public final class ViewBuilder {
     return this;
   }
 
+  /**
+   * Sets whether the metric stream configured by this view is enabled.
+   *
+   * <p>{@code true} enables the stream even if the instrument is opt-in or its stability is lower
+   * than the provider's minimum stability. {@code false} uses {@link Aggregation#drop()}. If unset,
+   * the instrument's opt-in and stability advisory parameters decide.
+   *
+   * <p>This method is experimental so not public. You may reflectively call it using {@link
+   * io.opentelemetry.sdk.metrics.internal.SdkMeterProviderUtil#setViewEnabled(ViewBuilder,
+   * boolean)}.
+   */
+  ViewBuilder setEnabled(boolean enabled) {
+    this.enabled = enabled;
+    return this;
+  }
+
   /** Returns a {@link View} with the configuration of this builder. */
   public View build() {
-    return View.create(name, description, aggregation, attributeFilter, cardinalityLimit);
+    Aggregation effectiveAggregation =
+        Boolean.FALSE.equals(enabled) ? Aggregation.drop() : aggregation;
+    return View.create(
+        name, description, effectiveAggregation, attributeFilter, cardinalityLimit, enabled);
   }
 }

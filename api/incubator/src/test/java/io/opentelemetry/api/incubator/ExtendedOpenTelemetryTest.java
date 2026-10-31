@@ -17,6 +17,7 @@ import io.opentelemetry.api.incubator.logs.ExtendedDefaultLoggerProvider;
 import io.opentelemetry.api.incubator.logs.ExtendedLogger;
 import io.opentelemetry.api.incubator.metrics.ExtendedDefaultMeterProvider;
 import io.opentelemetry.api.incubator.metrics.ExtendedLongCounterBuilder;
+import io.opentelemetry.api.incubator.metrics.ExtendedMeter;
 import io.opentelemetry.api.incubator.trace.ExtendedDefaultTracerProvider;
 import io.opentelemetry.api.incubator.trace.ExtendedTracer;
 import io.opentelemetry.api.logs.LoggerProvider;
@@ -72,6 +73,7 @@ class ExtendedOpenTelemetryTest extends AbstractOpenTelemetryTest {
   }
 
   private static void assertIsExtended(OpenTelemetry openTelemetry) {
+    assertThat(openTelemetry.getMeter("test")).isInstanceOf(ExtendedMeter.class);
     assertThat(openTelemetry.getMeter("test").counterBuilder("test"))
         .isInstanceOf(ExtendedLongCounterBuilder.class);
     assertThat(openTelemetry.getLogsBridge().get("test")).isInstanceOf(ExtendedLogger.class);

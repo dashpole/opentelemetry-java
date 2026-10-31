@@ -10,6 +10,7 @@ import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.incubator.metrics.BoundLongHistogram;
 import io.opentelemetry.api.incubator.metrics.ExtendedLongHistogram;
 import io.opentelemetry.api.incubator.metrics.ExtendedLongHistogramBuilder;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.sdk.metrics.internal.descriptor.Advice;
 import io.opentelemetry.sdk.metrics.internal.descriptor.InstrumentDescriptor;
@@ -83,6 +84,18 @@ final class ExtendedSdkLongHistogram extends SdkLongHistogram
     @Override
     public ExtendedLongHistogramBuilder setAttributesAdvice(List<AttributeKey<?>> attributes) {
       builder.setAdviceAttributes(attributes);
+      return this;
+    }
+
+    @Override
+    public ExtendedLongHistogramBuilder setStability(Stability stability) {
+      builder.setStability(stability);
+      return this;
+    }
+
+    @Override
+    public ExtendedLongHistogramBuilder setOptIn(boolean optIn) {
+      builder.setOptIn(optIn);
       return this;
     }
   }

@@ -7,6 +7,7 @@ package io.opentelemetry.sdk.metrics;
 
 import static java.util.stream.Collectors.toList;
 
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.metrics.MeterBuilder;
 import io.opentelemetry.api.metrics.MeterProvider;
 import io.opentelemetry.sdk.common.Clock;
@@ -73,7 +74,8 @@ public final class SdkMeterProvider implements MeterProvider, Closeable {
       Clock clock,
       SdkResourceProvider resourceProvider,
       ExemplarFilterInternal exemplarFilter,
-      ScopeConfigurator<MeterConfig> meterConfigurator) {
+      ScopeConfigurator<MeterConfig> meterConfigurator,
+      Stability minimumStability) {
     this.resourceProvider = resourceProvider;
     this.registeredViews = registeredViews;
     this.registeredReaders =
@@ -82,14 +84,15 @@ public final class SdkMeterProvider implements MeterProvider, Closeable {
                 entry ->
                     RegisteredReader.create(
                         entry.getKey(),
-                        ViewRegistry.create(entry.getKey(), entry.getValue(), registeredViews)))
+                        ViewRegistry.create(
+                            entry.getKey(), entry.getValue(), registeredViews, minimumStability)))
             .collect(toList());
     this.metricProducers = metricProducers;
     this.sharedState = MeterProviderSharedState.create(clock, resourceProvider, exemplarFilter);
     this.registry =
         new ComponentRegistry<>(
             instrumentationLibraryInfo ->
-                new SdkMeter(
+                SdkMeter.create(
                     sharedState,
                     instrumentationLibraryInfo,
                     registeredReaders,

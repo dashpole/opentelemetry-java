@@ -8,6 +8,7 @@ package io.opentelemetry.api.incubator.logs;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.opentelemetry.api.common.Value;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.logs.Logger;
 import io.opentelemetry.api.logs.LoggerProvider;
 import io.opentelemetry.api.logs.Severity;
@@ -34,7 +35,13 @@ class ExtendedDefaultLoggerTest extends AbstractDefaultLoggerTest {
     assertThat(logger.isEnabled(Severity.ERROR)).isFalse();
 
     assertThat(logger).isInstanceOf(ExtendedLogger.class);
-    assertThat(logger.isEnabled(Severity.ERROR, Context.current())).isFalse();
+    ExtendedLogger extendedLogger = (ExtendedLogger) logger;
+    assertThat(extendedLogger.isEnabled(Severity.ERROR, Context.current())).isFalse();
+    assertThat(extendedLogger.isEnabled(Severity.ERROR, Stability.STABLE)).isFalse();
+    assertThat(extendedLogger.isEnabled(Severity.ERROR, Stability.DEVELOPMENT)).isFalse();
+    assertThat(extendedLogger.attributeEnabled("key")).isFalse();
+    assertThat(extendedLogger.attributeEnabled("key", Stability.STABLE)).isFalse();
+    assertThat(extendedLogger.attributeEnabled("key", Stability.DEVELOPMENT)).isFalse();
     ExtendedLogRecordBuilder builder = (ExtendedLogRecordBuilder) logger.logRecordBuilder();
     assertThat(builder).isInstanceOf(ExtendedLogRecordBuilder.class);
     assertThat(builder.setBody(Value.of(0))).isSameAs(builder);

@@ -7,8 +7,10 @@ package io.opentelemetry.sdk.metrics.internal.view;
 
 import static java.util.Objects.requireNonNull;
 
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.sdk.common.InstrumentationScopeInfo;
 import io.opentelemetry.sdk.common.internal.GlobUtil;
+import io.opentelemetry.sdk.common.internal.IncludeExcludePredicate;
 import io.opentelemetry.sdk.metrics.Aggregation;
 import io.opentelemetry.sdk.metrics.InstrumentSelector;
 import io.opentelemetry.sdk.metrics.InstrumentType;
@@ -16,6 +18,7 @@ import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder;
 import io.opentelemetry.sdk.metrics.View;
 import io.opentelemetry.sdk.metrics.export.CardinalityLimitSelector;
 import io.opentelemetry.sdk.metrics.export.DefaultAggregationSelector;
+import io.opentelemetry.sdk.metrics.internal.SdkMeterProviderUtil;
 import io.opentelemetry.sdk.metrics.internal.aggregator.AggregationUtil;
 import io.opentelemetry.sdk.metrics.internal.aggregator.AggregatorFactory;
 import io.opentelemetry.sdk.metrics.internal.debug.SourceInfo;
@@ -27,6 +30,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.concurrent.Immutable;
@@ -48,15 +52,25 @@ public final class ViewRegistry {
           AttributesFilters.ALLOW_ALL,
           MetricStorage.DEFAULT_MAX_CARDINALITY,
           SourceInfo.noSourceInfo());
+  static final View DROP_VIEW = View.builder().setAggregation(Aggregation.drop()).build();
+  static final RegisteredView DROP_REGISTERED_VIEW =
+      RegisteredView.create(
+          InstrumentSelector.builder().setName("*").build(),
+          DROP_VIEW,
+          AttributesFilters.ALLOW_ALL,
+          MetricStorage.DEFAULT_MAX_CARDINALITY,
+          SourceInfo.noSourceInfo());
   private static final Logger logger = Logger.getLogger(ViewRegistry.class.getName());
 
   private final Map<InstrumentType, RegisteredView> instrumentDefaultRegisteredView;
   private final List<RegisteredView> registeredViews;
+  private final Stability minimumStability;
 
   ViewRegistry(
       DefaultAggregationSelector defaultAggregationSelector,
       CardinalityLimitSelector cardinalityLimitSelector,
-      List<RegisteredView> registeredViews) {
+      List<RegisteredView> registeredViews,
+      Stability minimumStability) {
     instrumentDefaultRegisteredView = new HashMap<>();
     for (InstrumentType instrumentType : InstrumentType.values()) {
       instrumentDefaultRegisteredView.put(
@@ -71,6 +85,7 @@ public final class ViewRegistry {
               SourceInfo.noSourceInfo()));
     }
     this.registeredViews = registeredViews;
+    this.minimumStability = minimumStability;
   }
 
   /** Returns a {@link ViewRegistry}. */
@@ -78,8 +93,21 @@ public final class ViewRegistry {
       DefaultAggregationSelector defaultAggregationSelector,
       CardinalityLimitSelector cardinalityLimitSelector,
       List<RegisteredView> registeredViews) {
+    return create(
+        defaultAggregationSelector, cardinalityLimitSelector, registeredViews, Stability.STABLE);
+  }
+
+  /** Returns a {@link ViewRegistry} with the specified minimum {@link Stability}. */
+  public static ViewRegistry create(
+      DefaultAggregationSelector defaultAggregationSelector,
+      CardinalityLimitSelector cardinalityLimitSelector,
+      List<RegisteredView> registeredViews,
+      Stability minimumStability) {
     return new ViewRegistry(
-        defaultAggregationSelector, cardinalityLimitSelector, new ArrayList<>(registeredViews));
+        defaultAggregationSelector,
+        cardinalityLimitSelector,
+        new ArrayList<>(registeredViews),
+        minimumStability);
   }
 
   /** Return a {@link ViewRegistry} using the default aggregation and no views registered. */
@@ -98,10 +126,18 @@ public final class ViewRegistry {
    */
   public List<RegisteredView> findViews(
       InstrumentDescriptor descriptor, InstrumentationScopeInfo meterScope) {
+    boolean disabledByDefault =
+        descriptor.getAdvice().isOptIn()
+            || descriptor.getAdvice().getStability().compareTo(minimumStability) < 0;
     List<RegisteredView> result = new ArrayList<>();
     // Find matching views for the instrument
     for (RegisteredView entry : registeredViews) {
       if (matchesSelector(entry.getInstrumentSelector(), descriptor, meterScope)) {
+        Boolean viewEnabled = SdkMeterProviderUtil.getViewEnabled(entry.getView());
+        if (Boolean.FALSE.equals(viewEnabled) || (viewEnabled == null && disabledByDefault)) {
+          result.add(DROP_REGISTERED_VIEW);
+          continue;
+        }
         AggregatorFactory viewAggregatorFactory =
             (AggregatorFactory) entry.getView().getAggregation();
         if (viewAggregatorFactory.isCompatibleWithInstrument(descriptor)) {
@@ -122,6 +158,10 @@ public final class ViewRegistry {
     // If a view matched, return it
     if (!result.isEmpty()) {
       return Collections.unmodifiableList(result);
+    }
+
+    if (disabledByDefault) {
+      return Collections.singletonList(DROP_REGISTERED_VIEW);
     }
 
     // No views matched, use default view
@@ -152,6 +192,40 @@ public final class ViewRegistry {
     }
 
     return Collections.singletonList(instrumentDefaultView);
+  }
+
+  /**
+   * Returns {@code true} if the attribute with the given {@code key} and {@link Stability} is
+   * enabled for the given {@code meterScope}.
+   *
+   * <p>Attributes whose {@code stability} meets or exceeds the minimum stability are enabled.
+   * Otherwise, the attribute is enabled only if an active (non-drop) view matching the meter
+   * explicitly includes {@code key} in its attribute filter.
+   */
+  @SuppressWarnings("ReferenceEquality")
+  public boolean isAttributeEnabled(
+      String key, Stability stability, InstrumentationScopeInfo meterScope) {
+    if (stability.compareTo(minimumStability) >= 0) {
+      return true;
+    }
+    for (RegisteredView entry : registeredViews) {
+      View view = entry.getView();
+      // Views with enabled=false are built with the drop aggregation.
+      if (view.getAggregation() != Aggregation.drop()
+          && matchesMeter(entry.getInstrumentSelector(), meterScope)
+          && explicitlyIncludesAttribute(view.getAttributeFilter(), key)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Only include lists (e.g. ViewBuilder#setAttributeFilter(Set) or declarative config
+  // attribute_keys.included) count as explicit inclusion; opaque predicates do not.
+  private static boolean explicitlyIncludesAttribute(Predicate<String> filter, String key) {
+    return filter instanceof IncludeExcludePredicate
+        && ((IncludeExcludePredicate) filter).hasIncluded()
+        && filter.test(key);
   }
 
   // Matches an instrument selector against an instrument + meter.

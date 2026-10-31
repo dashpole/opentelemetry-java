@@ -10,6 +10,7 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 
 import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.testing.internal.AbstractDefaultTracerTest;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.api.trace.TracerProvider;
@@ -35,6 +36,12 @@ class ExtendedDefaultTracerTest extends AbstractDefaultTracerTest {
     assertThat(tracer.isEnabled()).isFalse();
 
     assertThat(tracer).isInstanceOf(ExtendedTracer.class);
+    ExtendedTracer extendedTracer = (ExtendedTracer) tracer;
+    assertThat(extendedTracer.isEnabled(Stability.STABLE)).isFalse();
+    assertThat(extendedTracer.isEnabled(Stability.DEVELOPMENT)).isFalse();
+    assertThat(extendedTracer.attributeEnabled("key")).isFalse();
+    assertThat(extendedTracer.attributeEnabled("key", Stability.STABLE)).isFalse();
+    assertThat(extendedTracer.attributeEnabled("key", Stability.DEVELOPMENT)).isFalse();
     assertThat(tracer.spanBuilder("test")).isInstanceOf(ExtendedSpanBuilder.class);
   }
 

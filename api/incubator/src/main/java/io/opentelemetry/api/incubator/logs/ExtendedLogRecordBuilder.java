@@ -8,6 +8,7 @@ package io.opentelemetry.api.incubator.logs;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.Value;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.logs.LogRecordBuilder;
 import io.opentelemetry.api.logs.Severity;
 import io.opentelemetry.context.Context;
@@ -87,4 +88,12 @@ public interface ExtendedLogRecordBuilder extends LogRecordBuilder {
   /** {@inheritDoc} */
   @Override
   ExtendedLogRecordBuilder setException(Throwable throwable);
+
+  /**
+   * Sets the {@link Stability} level of the log record being built. If not set, defaults to {@link
+   * Stability#STABLE}.
+   */
+  default ExtendedLogRecordBuilder setStability(Stability stability) {
+    return this;
+  }
 }
