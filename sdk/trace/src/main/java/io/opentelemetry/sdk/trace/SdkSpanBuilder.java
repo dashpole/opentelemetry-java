@@ -13,6 +13,7 @@ import static io.opentelemetry.api.common.AttributeKey.stringKey;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.internal.ImmutableSpanContext;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.SpanContext;
@@ -60,6 +61,7 @@ class SdkSpanBuilder implements SpanBuilder {
   @Nullable private List<LinkData> links;
   private int totalNumberOfLinksAdded = 0;
   private long startEpochNanos = 0;
+  private Stability stability = Stability.STABLE;
 
   SdkSpanBuilder(
       String spanName,
@@ -180,12 +182,24 @@ class SdkSpanBuilder implements SpanBuilder {
     return this;
   }
 
+  SpanBuilder setStability(Stability stability) {
+    if (stability == null) {
+      return this;
+    }
+    this.stability = stability;
+    return this;
+  }
+
   @Override
   @SuppressWarnings({"rawtypes", "ReferenceEquality"})
   public Span startSpan() {
     Context parentContext = parent == null ? Context.current() : parent;
     Span parentSpan = Span.fromContext(parentContext);
     SpanContext parentSpanContext = parentSpan.getSpanContext();
+    Stability minimumStability = tracerSharedState.getMinimumStability();
+    if (minimumStability != null && stability.compareTo(minimumStability) < 0) {
+      return Span.wrap(parentSpanContext);
+    }
     String traceId;
     boolean isTraceIdRandom;
     IdGenerator idGenerator = tracerSharedState.getIdGenerator();

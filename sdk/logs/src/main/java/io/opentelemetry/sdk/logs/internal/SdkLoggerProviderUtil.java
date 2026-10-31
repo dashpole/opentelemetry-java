@@ -5,6 +5,7 @@
 
 package io.opentelemetry.sdk.logs.internal;
 
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.sdk.common.InstrumentationScopeInfo;
 import io.opentelemetry.sdk.common.internal.ExceptionAttributeResolver;
 import io.opentelemetry.sdk.common.internal.ScopeConfigurator;
@@ -117,5 +118,20 @@ public final class SdkLoggerProviderUtil {
       throw new IllegalStateException(
           "Error calling setExceptionAttributeResolver on SdkLoggerProviderBuilder", e);
     }
+  }
+
+  /** Reflectively set the minimum {@link Stability} on the {@link SdkLoggerProviderBuilder}. */
+  public static SdkLoggerProviderBuilder setMinimumStability(
+      SdkLoggerProviderBuilder sdkLoggerProviderBuilder, Stability minimumStability) {
+    try {
+      Method method =
+          SdkLoggerProviderBuilder.class.getDeclaredMethod("setMinimumStability", Stability.class);
+      method.setAccessible(true);
+      method.invoke(sdkLoggerProviderBuilder, minimumStability);
+    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+      throw new IllegalStateException(
+          "Error calling setMinimumStability on SdkLoggerProviderBuilder", e);
+    }
+    return sdkLoggerProviderBuilder;
   }
 }

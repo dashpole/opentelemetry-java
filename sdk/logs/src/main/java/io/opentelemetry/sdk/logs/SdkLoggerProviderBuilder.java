@@ -7,6 +7,7 @@ package io.opentelemetry.sdk.logs;
 
 import static java.util.Objects.requireNonNull;
 
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.logs.LogRecordBuilder;
 import io.opentelemetry.api.logs.Logger;
 import io.opentelemetry.api.metrics.MeterProvider;
@@ -46,6 +47,7 @@ public final class SdkLoggerProviderBuilder {
   private ExceptionAttributeResolver exceptionAttributeResolver =
       ExceptionAttributeResolver.getDefault();
   private Supplier<MeterProvider> meterProvider = MeterProvider::noop;
+  private Stability minimumStability = Stability.STABLE;
 
   SdkLoggerProviderBuilder() {}
 
@@ -240,6 +242,20 @@ public final class SdkLoggerProviderBuilder {
   }
 
   /**
+   * Sets the minimum {@link Stability} level of log records emitted by loggers from this provider.
+   * Log records with a stability lower than {@code minimumStability} are suppressed. Defaults to
+   * {@link Stability#STABLE}.
+   *
+   * <p>This method is experimental so not public. You may reflectively call it using {@link
+   * SdkLoggerProviderUtil#setMinimumStability(SdkLoggerProviderBuilder, Stability)}.
+   */
+  SdkLoggerProviderBuilder setMinimumStability(Stability minimumStability) {
+    requireNonNull(minimumStability, "minimumStability");
+    this.minimumStability = minimumStability;
+    return this;
+  }
+
+  /**
    * Create a {@link SdkLoggerProvider} instance.
    *
    * @return an instance configured with the provided options
@@ -254,6 +270,7 @@ public final class SdkLoggerProviderBuilder {
         clock,
         loggerConfiguratorBuilder.build(),
         exceptionAttributeResolver,
-        meterProvider);
+        meterProvider,
+        minimumStability);
   }
 }

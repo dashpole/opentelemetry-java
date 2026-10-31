@@ -7,6 +7,7 @@ package io.opentelemetry.sdk.trace;
 
 import static java.util.Objects.requireNonNull;
 
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.metrics.MeterProvider;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.sdk.common.Clock;
@@ -44,6 +45,7 @@ public final class SdkTracerProviderBuilder {
   private ExceptionAttributeResolver exceptionAttributeResolver =
       ExceptionAttributeResolver.getDefault();
   private Supplier<MeterProvider> meterProvider = MeterProvider::noop;
+  private Stability minimumStability = Stability.STABLE;
 
   /**
    * Assign a {@link Clock}. {@link Clock} will be used each time a {@link Span} is started, ended
@@ -286,6 +288,20 @@ public final class SdkTracerProviderBuilder {
   }
 
   /**
+   * Sets the minimum {@link Stability} level of spans emitted by tracers from this provider. Spans
+   * with a stability lower than {@code minimumStability} are suppressed. Defaults to {@link
+   * Stability#STABLE}.
+   *
+   * <p>This method is experimental so not public. You may reflectively call it using {@link
+   * SdkTracerProviderUtil#setMinimumStability(SdkTracerProviderBuilder, Stability)}.
+   */
+  SdkTracerProviderBuilder setMinimumStability(Stability minimumStability) {
+    requireNonNull(minimumStability, "minimumStability");
+    this.minimumStability = minimumStability;
+    return this;
+  }
+
+  /**
    * Create a new {@link SdkTracerProvider} instance with the configuration.
    *
    * @return The instance.
@@ -302,7 +318,8 @@ public final class SdkTracerProviderBuilder {
         spanProcessors,
         tracerConfiguratorBuilder.build(),
         exceptionAttributeResolver,
-        meterProvider);
+        meterProvider,
+        minimumStability);
   }
 
   SdkTracerProviderBuilder() {}

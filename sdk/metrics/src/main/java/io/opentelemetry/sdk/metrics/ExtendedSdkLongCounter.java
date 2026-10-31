@@ -11,6 +11,7 @@ import io.opentelemetry.api.incubator.metrics.BoundLongCounter;
 import io.opentelemetry.api.incubator.metrics.ExtendedDoubleCounterBuilder;
 import io.opentelemetry.api.incubator.metrics.ExtendedLongCounter;
 import io.opentelemetry.api.incubator.metrics.ExtendedLongCounterBuilder;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.sdk.metrics.internal.descriptor.InstrumentDescriptor;
 import io.opentelemetry.sdk.metrics.internal.state.BoundStorageHandle;
@@ -82,6 +83,18 @@ final class ExtendedSdkLongCounter extends SdkLongCounter
     @Override
     public ExtendedLongCounterBuilder setAttributesAdvice(List<AttributeKey<?>> attributes) {
       builder.setAdviceAttributes(attributes);
+      return this;
+    }
+
+    @Override
+    public ExtendedLongCounterBuilder setStability(Stability stability) {
+      builder.setStability(stability);
+      return this;
+    }
+
+    @Override
+    public ExtendedLongCounterBuilder setOptIn(boolean optIn) {
+      builder.setOptIn(optIn);
       return this;
     }
   }

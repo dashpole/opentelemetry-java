@@ -7,6 +7,7 @@ package io.opentelemetry.sdk.logs;
 
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Value;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.logs.LogRecordBuilder;
 import io.opentelemetry.api.logs.Severity;
 import io.opentelemetry.api.trace.Span;
@@ -33,6 +34,7 @@ class SdkLogRecordBuilder implements LogRecordBuilder {
   @Nullable private Value<?> body;
   @Nullable private String eventName;
   @Nullable private AttributesMap attributes;
+  private Stability stability = Stability.STABLE;
 
   SdkLogRecordBuilder(
       LoggerSharedState loggerSharedState,
@@ -135,9 +137,21 @@ class SdkLogRecordBuilder implements LogRecordBuilder {
     return this;
   }
 
+  SdkLogRecordBuilder setStability(Stability stability) {
+    if (stability == null) {
+      return this;
+    }
+    this.stability = stability;
+    return this;
+  }
+
   @Override
   public void emit() {
     if (loggerSharedState.hasBeenShutdown()) {
+      return;
+    }
+    Stability minimumStability = loggerSharedState.getMinimumStability();
+    if (minimumStability != null && stability.compareTo(minimumStability) < 0) {
       return;
     }
     Context context = this.context == null ? Context.current() : this.context;

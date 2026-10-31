@@ -8,6 +8,7 @@ package io.opentelemetry.api.incubator.trace;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.incubator.propagation.ExtendedContextPropagators;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
 import io.opentelemetry.api.trace.SpanContext;
@@ -34,6 +35,11 @@ final class ExtendedDefaultTracer implements ExtendedTracer {
 
   @Override
   public boolean isEnabled() {
+    return false;
+  }
+
+  @Override
+  public boolean isEnabled(Stability stability) {
     return false;
   }
 
@@ -131,6 +137,11 @@ final class ExtendedDefaultTracer implements ExtendedTracer {
 
     @Override
     public NoopSpanBuilder setStartTimestamp(long startTimestamp, TimeUnit unit) {
+      return this;
+    }
+
+    @Override
+    public NoopSpanBuilder setStability(Stability stability) {
       return this;
     }
 

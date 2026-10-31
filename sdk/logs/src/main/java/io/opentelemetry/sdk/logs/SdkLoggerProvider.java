@@ -6,6 +6,7 @@
 package io.opentelemetry.sdk.logs;
 
 import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.logs.Logger;
 import io.opentelemetry.api.logs.LoggerBuilder;
 import io.opentelemetry.api.logs.LoggerProvider;
@@ -64,6 +65,26 @@ public final class SdkLoggerProvider implements LoggerProvider, Closeable {
       ScopeConfigurator<LoggerConfig> loggerConfigurator,
       ExceptionAttributeResolver exceptionAttributeResolver,
       Supplier<MeterProvider> meterProvider) {
+    this(
+        resourceProvider,
+        logLimitsSupplier,
+        processors,
+        clock,
+        loggerConfigurator,
+        exceptionAttributeResolver,
+        meterProvider,
+        Stability.STABLE);
+  }
+
+  SdkLoggerProvider(
+      SdkResourceProvider resourceProvider,
+      Supplier<LogLimits> logLimitsSupplier,
+      List<LogRecordProcessor> processors,
+      Clock clock,
+      ScopeConfigurator<LoggerConfig> loggerConfigurator,
+      ExceptionAttributeResolver exceptionAttributeResolver,
+      Supplier<MeterProvider> meterProvider,
+      Stability minimumStability) {
     this.resourceProvider = resourceProvider;
     LogRecordProcessor logRecordProcessor = LogRecordProcessor.composite(processors);
     this.sharedState =
@@ -73,7 +94,8 @@ public final class SdkLoggerProvider implements LoggerProvider, Closeable {
             logRecordProcessor,
             clock,
             exceptionAttributeResolver,
-            new SdkLoggerInstrumentation(meterProvider));
+            new SdkLoggerInstrumentation(meterProvider),
+            minimumStability);
     this.loggerComponentRegistry =
         new ComponentRegistry<>(
             instrumentationScopeInfo ->

@@ -5,6 +5,7 @@
 
 package io.opentelemetry.sdk.logs;
 
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.logs.LogRecordBuilder;
 import io.opentelemetry.api.logs.Logger;
 import io.opentelemetry.api.logs.LoggerProvider;
@@ -16,6 +17,7 @@ import io.opentelemetry.sdk.common.InstrumentationScopeInfo;
 import io.opentelemetry.sdk.logs.internal.LoggerConfig;
 
 /** SDK implementation of {@link Logger}. */
+@SuppressWarnings("InconsistentOverloads")
 class SdkLogger implements Logger {
 
   private static final Logger NOOP_LOGGER = LoggerProvider.noop().get("noop");
@@ -78,6 +80,16 @@ class SdkLogger implements Logger {
     }
 
     return true;
+  }
+
+  public boolean isEnabled(Severity severity, Context context, Stability stability) {
+    Stability minimumStability = loggerSharedState.getMinimumStability();
+    if (stability != null
+        && minimumStability != null
+        && stability.compareTo(minimumStability) < 0) {
+      return false;
+    }
+    return isEnabled(severity, context);
   }
 
   @Override

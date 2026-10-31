@@ -6,6 +6,7 @@
 package io.opentelemetry.sdk.metrics;
 
 import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.metrics.ObservableDoubleMeasurement;
 import io.opentelemetry.api.metrics.ObservableLongMeasurement;
 import io.opentelemetry.sdk.metrics.internal.descriptor.Advice;
@@ -127,5 +128,16 @@ final class InstrumentBuilder {
 
   void setExplicitBucketBoundaries(List<Double> bucketBoundaries) {
     adviceBuilder.setExplicitBucketBoundaries(bucketBoundaries);
+  }
+
+  void setStability(Stability stability) {
+    if (stability == null) {
+      return;
+    }
+    adviceBuilder.setStability(stability);
+  }
+
+  void setOptIn(boolean optIn) {
+    adviceBuilder.setOptIn(optIn);
   }
 }

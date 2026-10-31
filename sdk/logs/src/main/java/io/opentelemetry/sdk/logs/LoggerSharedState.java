@@ -5,6 +5,7 @@
 
 package io.opentelemetry.sdk.logs;
 
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.sdk.common.Clock;
 import io.opentelemetry.sdk.common.CompletableResultCode;
 import io.opentelemetry.sdk.common.internal.ExceptionAttributeResolver;
@@ -25,6 +26,7 @@ final class LoggerSharedState {
   private final Clock clock;
   private final ExceptionAttributeResolver exceptionAttributeResolver;
   private final SdkLoggerInstrumentation loggerInstrumentation;
+  private final Stability minimumStability;
   @Nullable private volatile CompletableResultCode shutdownResult = null;
 
   LoggerSharedState(
@@ -34,12 +36,31 @@ final class LoggerSharedState {
       Clock clock,
       ExceptionAttributeResolver exceptionAttributeResolver,
       SdkLoggerInstrumentation loggerInstrumentation) {
+    this(
+        resourceProvider,
+        logLimitsSupplier,
+        logRecordProcessor,
+        clock,
+        exceptionAttributeResolver,
+        loggerInstrumentation,
+        Stability.STABLE);
+  }
+
+  LoggerSharedState(
+      SdkResourceProvider resourceProvider,
+      Supplier<LogLimits> logLimitsSupplier,
+      LogRecordProcessor logRecordProcessor,
+      Clock clock,
+      ExceptionAttributeResolver exceptionAttributeResolver,
+      SdkLoggerInstrumentation loggerInstrumentation,
+      Stability minimumStability) {
     this.resourceProvider = resourceProvider;
     this.logLimitsSupplier = logLimitsSupplier;
     this.logRecordProcessor = logRecordProcessor;
     this.clock = clock;
     this.exceptionAttributeResolver = exceptionAttributeResolver;
     this.loggerInstrumentation = loggerInstrumentation;
+    this.minimumStability = minimumStability;
   }
 
   Resource getResource() {
@@ -64,6 +85,10 @@ final class LoggerSharedState {
 
   SdkLoggerInstrumentation getLoggerInstrumentation() {
     return loggerInstrumentation;
+  }
+
+  Stability getMinimumStability() {
+    return minimumStability;
   }
 
   boolean hasBeenShutdown() {

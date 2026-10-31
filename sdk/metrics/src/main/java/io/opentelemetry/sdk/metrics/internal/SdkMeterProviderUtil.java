@@ -5,14 +5,18 @@
 
 package io.opentelemetry.sdk.metrics.internal;
 
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.sdk.common.InstrumentationScopeInfo;
 import io.opentelemetry.sdk.common.internal.ScopeConfigurator;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
 import io.opentelemetry.sdk.metrics.SdkMeterProviderBuilder;
+import io.opentelemetry.sdk.metrics.View;
+import io.opentelemetry.sdk.metrics.ViewBuilder;
 import io.opentelemetry.sdk.resources.internal.SdkResourceProvider;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.function.Predicate;
+import javax.annotation.Nullable;
 
 /**
  * A collection of methods that allow use of experimental features prior to availability in public
@@ -109,6 +113,45 @@ public final class SdkMeterProviderUtil {
       method.invoke(sdkMeterProvider);
     } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
       throw new IllegalStateException("Error calling resetForTest on SdkMeterProvider", e);
+    }
+  }
+
+  /** Reflectively set the minimum {@link Stability} on the {@link SdkMeterProviderBuilder}. */
+  public static SdkMeterProviderBuilder setMinimumStability(
+      SdkMeterProviderBuilder sdkMeterProviderBuilder, Stability minimumStability) {
+    try {
+      Method method =
+          SdkMeterProviderBuilder.class.getDeclaredMethod("setMinimumStability", Stability.class);
+      method.setAccessible(true);
+      method.invoke(sdkMeterProviderBuilder, minimumStability);
+    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+      throw new IllegalStateException(
+          "Error calling setMinimumStability on SdkMeterProviderBuilder", e);
+    }
+    return sdkMeterProviderBuilder;
+  }
+
+  /** Reflectively set {@code enabled} on the {@link ViewBuilder}. */
+  public static ViewBuilder setViewEnabled(ViewBuilder viewBuilder, boolean enabled) {
+    try {
+      Method method = ViewBuilder.class.getDeclaredMethod("setEnabled", boolean.class);
+      method.setAccessible(true);
+      method.invoke(viewBuilder, enabled);
+    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+      throw new IllegalStateException("Error calling setEnabled on ViewBuilder", e);
+    }
+    return viewBuilder;
+  }
+
+  /** Reflectively get {@code enabled} from the {@link View}. */
+  @Nullable
+  public static Boolean getViewEnabled(View view) {
+    try {
+      Method method = View.class.getDeclaredMethod("getEnabled");
+      method.setAccessible(true);
+      return (Boolean) method.invoke(view);
+    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+      throw new IllegalStateException("Error calling getEnabled on View", e);
     }
   }
 }

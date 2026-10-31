@@ -7,6 +7,7 @@ package io.opentelemetry.api.incubator.logs;
 
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Value;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.logs.Logger;
 import io.opentelemetry.api.logs.Severity;
 import io.opentelemetry.context.Context;
@@ -28,6 +29,11 @@ class ExtendedDefaultLogger implements ExtendedLogger {
 
   @Override
   public boolean isEnabled(Severity severity, Context context) {
+    return false;
+  }
+
+  @Override
+  public boolean isEnabled(Severity severity, Context context, Stability stability) {
     return false;
   }
 
@@ -97,6 +103,11 @@ class ExtendedDefaultLogger implements ExtendedLogger {
 
     @Override
     public ExtendedLogRecordBuilder setBody(Value<?> body) {
+      return this;
+    }
+
+    @Override
+    public ExtendedLogRecordBuilder setStability(Stability stability) {
       return this;
     }
 

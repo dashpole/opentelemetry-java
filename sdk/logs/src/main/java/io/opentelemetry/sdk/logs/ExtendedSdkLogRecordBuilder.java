@@ -8,6 +8,7 @@ package io.opentelemetry.sdk.logs;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Value;
 import io.opentelemetry.api.incubator.logs.ExtendedLogRecordBuilder;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.logs.Severity;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.sdk.common.InstrumentationScopeInfo;
@@ -95,6 +96,12 @@ final class ExtendedSdkLogRecordBuilder extends SdkLogRecordBuilder
   @Override
   public <T> ExtendedSdkLogRecordBuilder setAttribute(AttributeKey<T> key, @Nullable T value) {
     super.setAttribute(key, value);
+    return this;
+  }
+
+  @Override
+  public ExtendedSdkLogRecordBuilder setStability(Stability stability) {
+    super.setStability(stability);
     return this;
   }
 }

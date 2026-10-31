@@ -6,6 +6,7 @@
 package io.opentelemetry.api.incubator.metrics;
 
 import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.metrics.LongGaugeBuilder;
 import java.util.List;
 
@@ -17,6 +18,21 @@ public interface ExtendedLongGaugeBuilder extends LongGaugeBuilder {
    * for this gauge.
    */
   default ExtendedLongGaugeBuilder setAttributesAdvice(List<AttributeKey<?>> attributes) {
+    return this;
+  }
+
+  /**
+   * Specify the stability advisory parameter for this gauge. If not set, defaults to {@link
+   * Stability#STABLE}.
+   */
+  default ExtendedLongGaugeBuilder setStability(Stability stability) {
+    return this;
+  }
+
+  /**
+   * Specify the opt-in advisory parameter for this gauge. If not set, defaults to {@code false}.
+   */
+  default ExtendedLongGaugeBuilder setOptIn(boolean optIn) {
     return this;
   }
 }

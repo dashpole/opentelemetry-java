@@ -6,6 +6,7 @@
 package io.opentelemetry.api.incubator.metrics;
 
 import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.metrics.DoubleUpDownCounterBuilder;
 import java.util.List;
 
@@ -17,6 +18,22 @@ public interface ExtendedDoubleUpDownCounterBuilder extends DoubleUpDownCounterB
    * for this up down counter.
    */
   default ExtendedDoubleUpDownCounterBuilder setAttributesAdvice(List<AttributeKey<?>> attributes) {
+    return this;
+  }
+
+  /**
+   * Specify the stability advisory parameter for this up down counter. If not set, defaults to
+   * {@link Stability#STABLE}.
+   */
+  default ExtendedDoubleUpDownCounterBuilder setStability(Stability stability) {
+    return this;
+  }
+
+  /**
+   * Specify the opt-in advisory parameter for this up down counter. If not set, defaults to {@code
+   * false}.
+   */
+  default ExtendedDoubleUpDownCounterBuilder setOptIn(boolean optIn) {
     return this;
   }
 }

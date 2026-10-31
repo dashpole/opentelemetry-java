@@ -5,6 +5,7 @@
 
 package io.opentelemetry.sdk.trace.internal;
 
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.sdk.common.InstrumentationScopeInfo;
 import io.opentelemetry.sdk.common.internal.ExceptionAttributeResolver;
 import io.opentelemetry.sdk.common.internal.ScopeConfigurator;
@@ -115,6 +116,20 @@ public final class SdkTracerProviderUtil {
     } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
       throw new IllegalStateException(
           "Error calling setExceptionAttributeResolver on SdkTracerProviderBuilder", e);
+    }
+  }
+
+  /** Reflectively set the minimum {@link Stability} on the {@link SdkTracerProviderBuilder}. */
+  public static void setMinimumStability(
+      SdkTracerProviderBuilder sdkTracerProviderBuilder, Stability minimumStability) {
+    try {
+      Method method =
+          SdkTracerProviderBuilder.class.getDeclaredMethod("setMinimumStability", Stability.class);
+      method.setAccessible(true);
+      method.invoke(sdkTracerProviderBuilder, minimumStability);
+    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+      throw new IllegalStateException(
+          "Error calling setMinimumStability on SdkTracerProviderBuilder", e);
     }
   }
 }

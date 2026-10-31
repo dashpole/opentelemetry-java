@@ -6,6 +6,7 @@
 package io.opentelemetry.api.incubator.metrics;
 
 import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.metrics.DoubleHistogramBuilder;
 import java.util.List;
 
@@ -17,6 +18,22 @@ public interface ExtendedDoubleHistogramBuilder extends DoubleHistogramBuilder {
    * for this histogram.
    */
   default ExtendedDoubleHistogramBuilder setAttributesAdvice(List<AttributeKey<?>> attributes) {
+    return this;
+  }
+
+  /**
+   * Specify the stability advisory parameter for this histogram. If not set, defaults to {@link
+   * Stability#STABLE}.
+   */
+  default ExtendedDoubleHistogramBuilder setStability(Stability stability) {
+    return this;
+  }
+
+  /**
+   * Specify the opt-in advisory parameter for this histogram. If not set, defaults to {@code
+   * false}.
+   */
+  default ExtendedDoubleHistogramBuilder setOptIn(boolean optIn) {
     return this;
   }
 }

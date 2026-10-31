@@ -11,6 +11,7 @@ import io.opentelemetry.api.incubator.metrics.BoundDoubleGauge;
 import io.opentelemetry.api.incubator.metrics.ExtendedDoubleGauge;
 import io.opentelemetry.api.incubator.metrics.ExtendedDoubleGaugeBuilder;
 import io.opentelemetry.api.incubator.metrics.ExtendedLongGaugeBuilder;
+import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.sdk.metrics.internal.descriptor.InstrumentDescriptor;
 import io.opentelemetry.sdk.metrics.internal.state.BoundStorageHandle;
@@ -73,6 +74,18 @@ final class ExtendedSdkDoubleGauge extends SdkDoubleGauge
     @Override
     public ExtendedDoubleGaugeBuilder setAttributesAdvice(List<AttributeKey<?>> attributes) {
       builder.setAdviceAttributes(attributes);
+      return this;
+    }
+
+    @Override
+    public ExtendedDoubleGaugeBuilder setStability(Stability stability) {
+      builder.setStability(stability);
+      return this;
+    }
+
+    @Override
+    public ExtendedDoubleGaugeBuilder setOptIn(boolean optIn) {
+      builder.setOptIn(optIn);
       return this;
     }
 
