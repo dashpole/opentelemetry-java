@@ -7,9 +7,18 @@ package io.opentelemetry.api.incubator.metrics;
 
 import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.metrics.Meter;
+import io.opentelemetry.context.Context;
 
 /** Extended {@link Meter} with experimental APIs. */
 public interface ExtendedMeter extends Meter {
+
+  /**
+   * Returns {@code true} if the attribute with the given {@code key} and {@code stability} is
+   * enabled for this meter and {@code context}.
+   */
+  default boolean attributeEnabled(String key, Context context, Stability stability) {
+    return attributeEnabled(key, stability);
+  }
 
   /**
    * Returns {@code true} if the attribute with the given {@code key} and {@code stability} is

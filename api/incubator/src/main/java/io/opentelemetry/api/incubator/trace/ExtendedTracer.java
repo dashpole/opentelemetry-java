@@ -7,6 +7,7 @@ package io.opentelemetry.api.incubator.trace;
 
 import io.opentelemetry.api.internal.Stability;
 import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 
 /** Extended {@link Tracer} with experimental APIs. */
 public interface ExtendedTracer extends Tracer {
@@ -18,6 +19,14 @@ public interface ExtendedTracer extends Tracer {
    */
   default boolean isEnabled(Stability stability) {
     return isEnabled();
+  }
+
+  /**
+   * Returns {@code true} if the attribute with the given {@code key} and {@code stability} is
+   * enabled for this tracer and {@code context}.
+   */
+  default boolean attributeEnabled(String key, Context context, Stability stability) {
+    return attributeEnabled(key, stability);
   }
 
   /**

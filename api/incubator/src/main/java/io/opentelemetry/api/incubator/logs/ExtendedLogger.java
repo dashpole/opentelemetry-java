@@ -36,6 +36,14 @@ public interface ExtendedLogger extends Logger {
 
   /**
    * Returns {@code true} if the attribute with the given {@code key} and {@code stability} is
+   * enabled for this logger and {@code context}.
+   */
+  default boolean attributeEnabled(String key, Context context, Stability stability) {
+    return attributeEnabled(key, stability);
+  }
+
+  /**
+   * Returns {@code true} if the attribute with the given {@code key} and {@code stability} is
    * enabled for this logger.
    *
    * <p>Instrumentation should call this before computing or attaching {@link Stability#DEVELOPMENT}
